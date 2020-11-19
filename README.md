@@ -27,4 +27,16 @@ Content-Length: 54
 
 There, as you can see there is a header `Uber-Trace-Id` and you can get the trace info in Jaeger using following URL: [http://localhost:16686/trace/1f43f36f2edd33ed](http://localhost:16686/trace/1f43f36f2edd33ed)
 
+## Load testing
 
+For single request:
+
+```sh
+$ k6 run load-testing.js
+```
+
+For load testing request with 10 virtual users in 30 seconds:
+
+```sh
+$ k6 run --vus 10 --duration 30s load-testing.js
+```

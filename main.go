@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/labstack/echo"
-	"github.com/labstack/echo/middleware"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
 	"github.com/opentracing/opentracing-go/log"
@@ -18,8 +19,9 @@ import (
 )
 
 const (
-	tracerURL   = "localhost:5775"
-	serviceName = "API-SERVICE"
+	tracerURL       = "localhost:1112"
+	serviceName     = "API-SERVICE"
+	raincoatService = "http://localhost:1324"
 )
 
 func main() {
@@ -139,7 +141,7 @@ func doExplore(eCtx echo.Context) error {
 	}
 
 	out, _ = startTheJourneyFromTreeHouse(ctx, in)
-	out, _ = passTheForest(ctx, out)
+
 	out, _ = crossTheLake(ctx, out, isRainyDay)
 	out, _ = enterThePyramid(ctx, out)
 
@@ -168,6 +170,9 @@ func startTheJourneyFromTreeHouse(parent context.Context, param int64) (out int6
 
 	time.Sleep(2 * time.Millisecond)
 	span.SetTag("message", "prepare some food")
+
+	go passTheForest(ctx, out)
+	go passTheForest(ctx, out)
 
 	out = param + 2
 	return
@@ -201,12 +206,12 @@ func crossTheLake(parent context.Context, param int64, isRainyDay bool) (out int
 		time.Sleep(20 * time.Millisecond)
 		span.SetTag("message", "It's a rainy day and "+
 			"I must extra careful since I don't want my boat drowned with me")
+		getTheRaincoat(ctx)
 	} else {
 		span.SetTag("message", "Clear weather and I enjoy the view from the lake!")
 	}
 
 	span.SetTag("isRainyDay", isRainyDay)
-
 	return
 }
 
@@ -222,4 +227,49 @@ func enterThePyramid(parent context.Context, param int64) (out int64, err error)
 
 	span.SetTag("message", "Whoa, everywhere's dark!")
 	return
+}
+
+func getTheRaincoat(parent context.Context) {
+	span, ctx := opentracing.StartSpanFromContext(parent, "getTheRaincoat")
+	defer func() {
+		ctx.Done()
+		span.Finish()
+	}()
+
+	req, _ := http.NewRequest("GET", raincoatService+"/get-the-raincoat", nil)
+	req = req.WithContext(ctx)
+
+	_ = opentracing.GlobalTracer().Inject(
+		span.Context(),
+		opentracing.HTTPHeaders,
+		opentracing.HTTPHeadersCarrier(req.Header),
+	)
+
+	client := http.DefaultClient
+	res, err := client.Do(req)
+	if err != nil {
+		span.LogFields(
+			log.String("error_request", err.Error()),
+		)
+		return
+	}
+
+	resp, _ := ioutil.ReadAll(res.Body)
+
+	span.LogFields(
+		log.String("raincoat_service_data", string(resp)),
+	)
+
+	heavyComputation(ctx)
+}
+
+func heavyComputation(parent context.Context) {
+	span, ctx := opentracing.StartSpanFromContext(parent, "heavyComputation")
+	defer func() {
+		ctx.Done()
+		span.Finish()
+	}()
+
+	span.SetTag("info", "do heavy computation on rainy day")
+	time.Sleep(100 * time.Millisecond)
 }
